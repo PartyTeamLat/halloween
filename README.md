@@ -38,7 +38,7 @@ Editing the Settings sheet takes effect immediately. If you change `Code.gs` lat
 3. Under **Build and deployment**, choose **Deploy from a branch**, branch `main`, folder `/ (root)`.
 4. The site will be at `https://YOUR-NAME.github.io/REPOSITORY-NAME/`.
 
-Share that address. The host list is the same address with `admin.html` at the end. It is linked quietly at the bottom of the invitation.
+This party is at https://partyteamlat.github.io/halloween/. The host list is that address with `admin.html` at the end. It is not linked from the invitation.
 
 ## Accept someone
 
