@@ -50,12 +50,13 @@
         } else if (guest.status === "accepted") {
           total.accepted += size;
           if (guest.paid === "yes") total.paid += size;
+          if (guest.checkedIn) total.inside += 1;
         } else if (guest.status === "declined") {
           total.declined += 1;
         }
         return total;
       },
-      { pending: 0, asking: 0, accepted: 0, paid: 0, declined: 0 }
+      { pending: 0, asking: 0, accepted: 0, paid: 0, declined: 0, inside: 0 }
     );
   }
 
@@ -63,6 +64,7 @@
     return guests.filter(function (guest) {
       if (filter === "all") return true;
       if (filter === "paid") return guest.status === "accepted" && guest.paid === "yes";
+      if (filter === "inside") return guest.status === "accepted" && !!guest.checkedIn;
       if (filter === "accepted") return guest.status === "accepted";
       return guest.status === filter;
     });
@@ -75,6 +77,8 @@
     summary.textContent =
       total.accepted +
       " places confirmed · " +
+      total.inside +
+      " inside · " +
       total.asking +
       " still asking · " +
       total.paid +
@@ -112,7 +116,8 @@
         " · " +
         mail.priceLabel +
         " · " +
-        mail.address
+        mail.address +
+        ". Accepting someone also sends their door code."
       : "Add the real street address in the Settings sheet before you accept anyone.";
   }
 
@@ -149,8 +154,9 @@
       var title = document.createElement("h3");
       title.textContent = guest.name || "Unnamed";
       var pill = document.createElement("span");
-      pill.className = "pill pill-" + (guest.status || "pending");
-      pill.textContent = guest.paid === "yes" ? "paid" : guest.status || "pending";
+      var pillState = guest.checkedIn ? "inside" : guest.paid === "yes" ? "paid" : guest.status || "pending";
+      pill.className = "pill pill-" + (pillState === "paid" ? "accepted" : pillState);
+      pill.textContent = pillState;
       head.appendChild(title);
       head.appendChild(pill);
 
@@ -171,6 +177,10 @@
       if (guest.invitationSent) {
         addLine(body, "Invitation", formatWhen(guest.invitationSent));
       }
+      if (guest.status === "accepted") {
+        addLine(body, "Paid", guest.paid === "yes" ? "Yes" : "Not yet");
+      }
+      if (guest.checkedIn) addLine(body, "Inside", formatWhen(guest.checkedIn));
 
       var actions = document.createElement("div");
       actions.className = "guest-actions";
@@ -189,6 +199,12 @@
           actions.appendChild(button("Mark paid", "button", "paid", guest.id));
         }
         actions.appendChild(button("Copy invitation", "button button-quiet", "copy", guest.id));
+        actions.appendChild(button("Door code", "button button-quiet", "code", guest.id));
+        if (!guest.checkedIn) {
+          actions.appendChild(button("Mark inside", "button button-quiet", "arrived", guest.id));
+        } else {
+          actions.appendChild(button("Clear arrival", "button button-quiet", "clear-arrival", guest.id));
+        }
         if (!window.GuestList.isDemo()) {
           actions.appendChild(button("Resend email", "button button-quiet", "resend", guest.id));
         }
@@ -265,6 +281,10 @@
     showGate();
   });
 
+  document.getElementById("code-close").addEventListener("click", function () {
+    document.getElementById("code-panel").hidden = true;
+  });
+
   document.getElementById("refresh").addEventListener("click", load);
 
   document.getElementById("filters").addEventListener("click", function (event) {
@@ -283,6 +303,23 @@
     })[0];
   }
 
+  function showDoorCode(name, doorCode) {
+    var panel = document.getElementById("code-panel");
+    var image = document.getElementById("code-image");
+    document.getElementById("code-name").textContent = name || "";
+    panel.hidden = false;
+    try {
+      var drawn = qrcode(0, "Q");
+      drawn.addData(doorCode, "Alphanumeric");
+      drawn.make();
+      image.src = drawn.createDataURL(8);
+      image.hidden = false;
+    } catch (err) {
+      image.removeAttribute("src");
+      image.hidden = true;
+    }
+  }
+
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(text);
@@ -299,29 +336,38 @@
     var guest = findGuest(id);
     if (!guest) return;
 
-    if (action === "copy") {
+    if (action === "copy" || action === "code") {
       target.disabled = true;
       try {
         var preview = await window.GuestList.update(password, { id: id, resend: false, preview: true });
-        await copyText(preview.invitationText || "");
-        target.textContent = "Copied";
+        if (action === "copy") {
+          await copyText(preview.invitationText || "");
+          target.textContent = "Copied";
+        } else if (preview.doorCode) {
+          showDoorCode(guest.name, preview.doorCode);
+        } else {
+          listError.hidden = false;
+          listError.textContent = "There is no door code yet. Update the Apps Script, deploy a new version, and try again.";
+        }
       } catch (err) {
         listError.hidden = false;
-        listError.textContent = err.message || "Could not copy the invitation.";
+        listError.textContent = err.message || "Could not open that invitation.";
       }
       target.disabled = false;
       return;
     }
 
     var acceptPrompt = window.GuestList.isDemo()
-      ? "Accept " + guest.name + "? You can copy the invitation afterward. Email starts once the Google Sheet is connected."
-      : "Accept " + guest.name + " and email the invitation to " + guest.email + "?";
+      ? "Accept " + guest.name + "? You can open their door code afterward. Email starts once the Google Sheet is connected."
+      : "Accept " + guest.name + " and email the invitation, with their door code, to " + guest.email + "?";
     var prompts = {
       accepted: acceptPrompt,
       declined: "Decline " + guest.name + "?",
       paid: "Mark the contribution paid for " + guest.name + "?",
-      resend: "Email the invitation to " + guest.email + " again?",
+      resend: "Email the invitation and door code to " + guest.email + " again?",
       pending: "Move " + guest.name + " back to the confirmation list?",
+      arrived: "Mark " + guest.name + " inside without scanning a door code?",
+      "clear-arrival": "Clear the arrival for " + guest.name + " so their code can be scanned again?",
     };
     if (!window.confirm(prompts[action])) return;
 
@@ -337,6 +383,7 @@
         listError.textContent = result.warning;
         if (result.invitationText) await copyText(result.invitationText);
       }
+      if (result.warning && result.doorCode) showDoorCode(guest.name, result.doorCode);
       await load();
     } catch (err) {
       listError.hidden = false;
@@ -358,6 +405,7 @@
       "note",
       "submitted",
       "invitationSent",
+      "checkedIn",
     ];
     var lines = [header.join(",")];
     guests.forEach(function (guest) {

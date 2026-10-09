@@ -444,7 +444,54 @@ input:focus, select:focus, textarea:focus {
 
 .pill-pending { color: #fffaf6; background: var(--ember); }
 .pill-accepted { color: #fffaf6; background: var(--sage); }
+.pill-inside { color: #fffaf6; background: var(--gold-strong); }
 .pill-declined { color: var(--muted); border: 1px solid var(--line); }
+
+a.button { display: inline-block; text-decoration: none; text-align: center; }
+
+.header-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.code-panel img {
+  display: block;
+  width: min(260px, 100%);
+  height: auto;
+  margin: 0.6rem 0 0.8rem;
+  background: #fff;
+}
+
+.camera {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: #24120f;
+  margin-bottom: 0.8rem;
+}
+
+.scan-result { margin-top: 1rem; padding: 1.1rem 1rem 1.2rem; }
+.scan-result h2 {
+  margin: 0.15rem 0 0.45rem;
+  color: inherit;
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+}
+.scan-result p { margin: 0.2rem 0; }
+.scan-result .eyebrow { color: inherit; }
+.scan-result .button { margin-top: 1rem; background: #fffaf6; color: #24120f; }
+.scan-welcome { background: #2f6b45; color: #fffaf6; }
+.scan-already { background: #ef5b2a; color: #fffaf6; }
+.scan-bad { background: #9d243c; color: #fffaf6; }
+
+.footer-links { margin-top: 1.4rem; }
+.footer-links .text-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
 
 ::selection { background: rgba(226, 59, 106, 0.22); }
 
@@ -459,4 +506,5 @@ input:focus, select:focus, textarea:focus {
 @media (max-width: 640px) {
   .card { margin-top: 1.25rem; }
   .admin-header { align-items: flex-start; flex-direction: column; }
+  .header-links { align-items: flex-start; }
 }

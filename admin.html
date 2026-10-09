@@ -23,7 +23,10 @@
           <p class="eyebrow">Host list</p>
           <h1 id="admin-title">Halloween</h1>
         </div>
-        <a class="text-link" href="index.html">Back to the invitation</a>
+        <div class="header-links">
+          <a class="text-link" href="door.html">Scan at the door</a>
+          <a class="text-link" href="index.html">Back to the invitation</a>
+        </div>
       </header>
 
       <p class="banner" id="demo-note" hidden></p>
@@ -54,10 +57,18 @@
           <p id="meter-label"></p>
         </div>
         <p class="mail-line" id="mail-preview" hidden></p>
+        <section class="code-panel" id="code-panel" hidden>
+          <p class="eyebrow">Door code</p>
+          <h2 id="code-name"></h2>
+          <img id="code-image" alt="Door code" width="260" height="260" />
+          <p class="quiet">This is the picture in their invitation.</p>
+          <button class="button button-quiet" id="code-close" type="button">Close</button>
+        </section>
         <div class="filters" id="filters">
           <button class="chip is-selected" type="button" data-filter="pending">Asking</button>
           <button class="chip" type="button" data-filter="accepted">Accepted</button>
           <button class="chip" type="button" data-filter="paid">Paid</button>
+          <button class="chip" type="button" data-filter="inside">Inside</button>
           <button class="chip" type="button" data-filter="declined">Declined</button>
           <button class="chip" type="button" data-filter="all">All</button>
         </div>
@@ -67,6 +78,7 @@
       </section>
     </main>
     <script src="js/config.js"></script>
+    <script src="js/qrcode.js"></script>
     <script src="js/api.js"></script>
     <script src="js/admin.js"></script>
   </body>

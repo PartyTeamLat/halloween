@@ -2,6 +2,7 @@
 //
 // 1. Create a Google Sheet.
 // 2. Extensions → Apps Script, replace the default file with this one.
+//    Also add a file named qr and paste apps-script/qr.gs into it.
 // 3. Run setup once and allow the permissions.
 // 4. Fill the Settings sheet: adminPassword, address, paymentInstructions, replyTo.
 // 5. Deploy → New deployment → Web app.
@@ -25,7 +26,15 @@ var GUEST_HEADERS = [
   "status",
   "invitationSent",
   "paid",
+  "token",
+  "checkedIn",
 ];
+
+var COL_STATUS = 10;
+var COL_SENT = 11;
+var COL_PAID = 12;
+var COL_TOKEN = 13;
+var COL_CHECKED = 14;
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -50,7 +59,7 @@ function setup() {
     guests.getRange(1, 1, 1, GUEST_HEADERS.length).setValues([GUEST_HEADERS]);
     guests.getRange(1, 1, 1, GUEST_HEADERS.length).setFontWeight("bold");
     guests.setFrozenRows(1);
-    guests.getRange("A:L").setNumberFormat("@");
+    guests.getRange("A:N").setNumberFormat("@");
   }
 
   var settings = ss.getSheetByName("Settings");
@@ -105,6 +114,7 @@ function handle(payload) {
     if (payload.action === "register") return registerGuest(payload);
     if (payload.action === "list") return listGuests(payload);
     if (payload.action === "update") return updateGuest(payload);
+    if (payload.action === "checkin") return checkInGuest(payload);
     return { ok: false, error: "Unknown request." };
   } catch (err) {
     return { ok: false, error: err.message || "The guest list could not do that." };
@@ -157,6 +167,8 @@ function registerGuest(payload) {
       "pending",
       "",
       "",
+      "",
+      "",
     ]);
     return { ok: true };
   } finally {
@@ -166,9 +178,13 @@ function registerGuest(payload) {
 
 function listGuests(payload) {
   var settings = requireHost(payload.password);
+  var guests = readGuests(guestSheet());
+  guests.forEach(function (guest) {
+    delete guest.token;
+  });
   return {
     ok: true,
-    guests: readGuests(guestSheet()),
+    guests: guests,
     mail: mailSummary(settings),
   };
 }
@@ -195,40 +211,71 @@ function updateGuest(payload) {
       if (guest.status !== "accepted") {
         return { ok: false, error: "Accept them before copying an invitation." };
       }
-      return { ok: true, invitationText: invitationBody(guest, settings) };
+      guest.token = ensureToken(sheet, found);
+      return {
+        ok: true,
+        invitationText: invitationBody(guest, settings, true),
+        doorCode: doorCodeText(guest.token),
+      };
     }
 
     if (payload.resend === true) {
       if (guest.status !== "accepted") {
         return { ok: false, error: "Accept them before sending an invitation." };
       }
+      guest.token = ensureToken(sheet, found);
       var resent = sendInvitation(guest, settings);
-      sheet.getRange(found.rowNumber, 11).setValue(resent.sentAt);
-      return { ok: true, warning: resent.warning, invitationText: resent.text };
+      sheet.getRange(found.rowNumber, COL_SENT).setValue(resent.sentAt);
+      return {
+        ok: true,
+        warning: resent.warning,
+        invitationText: resent.text,
+        doorCode: doorCodeText(guest.token),
+      };
     }
 
     var status = clean(payload.status, 20);
     if (status === "accepted") {
       guest.status = "accepted";
+      guest.token = ensureToken(sheet, found);
       var sent = sendInvitation(guest, settings);
-      sheet.getRange(found.rowNumber, 10).setValue("accepted");
-      sheet.getRange(found.rowNumber, 11).setValue(sent.sentAt);
-      return { ok: true, warning: sent.warning, invitationText: sent.text };
+      sheet.getRange(found.rowNumber, COL_STATUS).setValue("accepted");
+      sheet.getRange(found.rowNumber, COL_SENT).setValue(sent.sentAt);
+      return {
+        ok: true,
+        warning: sent.warning,
+        invitationText: sent.text,
+        doorCode: doorCodeText(guest.token),
+      };
     }
     if (status === "declined") {
-      sheet.getRange(found.rowNumber, 10).setValue("declined");
+      sheet.getRange(found.rowNumber, COL_STATUS).setValue("declined");
+      sheet.getRange(found.rowNumber, COL_CHECKED).setValue("");
       return { ok: true };
     }
     if (status === "pending") {
-      sheet.getRange(found.rowNumber, 10).setValue("pending");
-      sheet.getRange(found.rowNumber, 12).setValue("");
+      sheet.getRange(found.rowNumber, COL_STATUS).setValue("pending");
+      sheet.getRange(found.rowNumber, COL_PAID).setValue("");
+      sheet.getRange(found.rowNumber, COL_CHECKED).setValue("");
       return { ok: true };
     }
     if (status === "paid") {
       if (guest.status !== "accepted") {
         return { ok: false, error: "Accept them before marking the contribution paid." };
       }
-      sheet.getRange(found.rowNumber, 12).setValue("yes");
+      sheet.getRange(found.rowNumber, COL_PAID).setValue("yes");
+      return { ok: true };
+    }
+    if (status === "arrived") {
+      if (guest.status !== "accepted") {
+        return { ok: false, error: "Accept them before marking them inside." };
+      }
+      var arrivedAt = new Date().toISOString();
+      sheet.getRange(found.rowNumber, COL_CHECKED).setNumberFormat("@").setValue(arrivedAt);
+      return { ok: true };
+    }
+    if (status === "clear-arrival") {
+      sheet.getRange(found.rowNumber, COL_CHECKED).setValue("");
       return { ok: true };
     }
     return { ok: false, error: "That update is not one the list understands." };
@@ -237,8 +284,61 @@ function updateGuest(payload) {
   }
 }
 
+function checkInGuest(payload) {
+  requireHost(payload.password);
+  var token = normalizeDoorCode(payload.token);
+  if (!token) return { ok: true, result: "unknown" };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var sheet = guestSheet();
+    var found = findGuestByToken(sheet, token);
+    if (!found) return { ok: true, result: "unknown" };
+    var guest = found.guest;
+    if (guest.status !== "accepted") {
+      return {
+        ok: true,
+        result: "not-accepted",
+        name: guest.name,
+        status: guest.status,
+      };
+    }
+    if (guest.checkedIn) {
+      return {
+        ok: true,
+        result: "already",
+        name: guest.name,
+        email: guest.email,
+        paid: guest.paid,
+        checkedIn: guest.checkedIn,
+      };
+    }
+    var arrivedAt = new Date().toISOString();
+    sheet.getRange(found.rowNumber, COL_CHECKED).setNumberFormat("@").setValue(arrivedAt);
+    return {
+      ok: true,
+      result: "welcome",
+      name: guest.name,
+      email: guest.email,
+      paid: guest.paid,
+      checkedIn: arrivedAt,
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function sendInvitation(guest, settings) {
-  var text = invitationBody(guest, settings);
+  var picture = null;
+  var pictureWarning = "";
+  try {
+    picture = makeDoorGif(doorCodeText(guest.token));
+  } catch (err) {
+    pictureWarning =
+      "The invitation was sent without the door picture. In Apps Script, add the qr file, deploy a new version, and resend.";
+  }
+  var text = invitationBody(guest, settings, !!picture);
   var sentAt = new Date().toISOString();
   try {
     var message = {
@@ -247,17 +347,26 @@ function sendInvitation(guest, settings) {
       body: text,
       name: settings.hostName || "The hosts",
     };
+    if (picture) {
+      var attached = null;
+      try {
+        attached = picture.copyBlob();
+      } catch (ignore) {}
+      message.htmlBody = invitationHtml(guest, settings);
+      message.inlineImages = { doorcode: picture };
+      if (attached) message.attachments = [attached];
+    }
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.replyTo || "")) {
       message.replyTo = settings.replyTo;
     }
     MailApp.sendEmail(message);
-    return { sentAt: sentAt, text: text, warning: "" };
+    return { sentAt: sentAt, text: text, warning: pictureWarning };
   } catch (err) {
     return {
       sentAt: "",
       text: text,
       warning:
-        "The place was updated, but the email could not be sent. Copy the invitation and send it yourself.",
+        "The place was updated, but the email could not be sent. Use Door code and send the picture yourself.",
     };
   }
 }
@@ -266,7 +375,7 @@ function addressReady(settings) {
   return settings.address && settings.address.indexOf("Write the street") !== 0;
 }
 
-function invitationBody(guest, settings) {
+function invitationLines(guest, settings, hasPicture) {
   var lines = [
     "Hello " + guest.name + ",",
     "",
@@ -286,10 +395,79 @@ function invitationBody(guest, settings) {
     "Costumes are encouraged, not required. There is a costume competition.",
     "We can refuse entry for unruly or disruptive behavior.",
     "",
-    "See you there,",
-    settings.hostName || "The hosts",
   ];
-  return lines.join("\n");
+  if (hasPicture) {
+    lines.push("Show the door-code picture in this email when you arrive. It is for you only.");
+    lines.push("");
+  }
+  lines.push("See you there,");
+  lines.push(settings.hostName || "The hosts");
+  return lines;
+}
+
+function invitationBody(guest, settings, hasPicture) {
+  return invitationLines(guest, settings, hasPicture).join("\n");
+}
+
+function invitationHtml(guest, settings) {
+  var lines = invitationLines(guest, settings, true);
+  var html = ['<div style="font-family:Georgia,serif;font-size:16px;line-height:1.45;color:#24120f">'];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line) continue;
+    if (/^https?:\/\//.test(line)) {
+      html.push('<p><a href="' + escapeHtml(line) + '">' + escapeHtml(line) + "</a></p>");
+    } else {
+      html.push("<p>" + escapeHtml(line) + "</p>");
+    }
+    if (line.indexOf("Show the door-code picture") === 0) {
+      html.push('<p><img src="cid:doorcode" width="260" height="260" alt="Door code"></p>');
+    }
+  }
+  html.push("</div>");
+  return html.join("");
+}
+
+function ensureToken(sheet, found) {
+  if (found.guest.token) return found.guest.token;
+  var token = newDoorToken();
+  sheet.getRange(found.rowNumber, COL_TOKEN).setNumberFormat("@").setValue(token);
+  found.guest.token = token;
+  return token;
+}
+
+function newDoorToken() {
+  var digest = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    Utilities.getUuid() + ":" + String(Math.random()) + ":" + String(new Date().getTime())
+  );
+  var hex = "";
+  for (var i = 0; i < 12; i++) {
+    var value = digest[i];
+    if (value < 0) value += 256;
+    var piece = value.toString(16).toUpperCase();
+    if (piece.length < 2) piece = "0" + piece;
+    hex += piece;
+  }
+  return hex;
+}
+
+function doorCodeText(token) {
+  return "LATAM1." + String(token || "").toUpperCase();
+}
+
+function normalizeDoorCode(value) {
+  var text = clean(value, 80).toUpperCase();
+  var match = text.match(/LATAM1\.([0-9A-F]{16,64})/);
+  return match ? match[1] : "";
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function requireHost(password) {
@@ -318,7 +496,18 @@ function mailSummary(settings) {
 function guestSheet() {
   var sheet = SpreadsheetApp.getActive().getSheetByName("Guests");
   if (!sheet) throw new Error("Missing the Guests sheet. Run setup() once in Apps Script.");
+  ensureGuestColumns(sheet);
   return sheet;
+}
+
+function ensureGuestColumns(sheet) {
+  var width = Math.max(sheet.getLastColumn(), GUEST_HEADERS.length);
+  var headers = sheet.getRange(1, 1, 1, width).getValues()[0];
+  if (String(headers[0]) !== "id") return;
+  if (String(headers[12]) === "token" && String(headers[13]) === "checkedIn") return;
+  sheet.getRange(1, COL_TOKEN).setValue("token").setFontWeight("bold");
+  sheet.getRange(1, COL_CHECKED).setValue("checkedIn").setFontWeight("bold");
+  sheet.getRange("M:N").setNumberFormat("@");
 }
 
 function getSettings() {
@@ -349,9 +538,22 @@ function readGuests(sheet) {
 }
 
 function findGuest(sheet, id) {
+  return findGuestWhere(sheet, function (row) {
+    return String(row[0]) === id;
+  });
+}
+
+function findGuestByToken(sheet, token) {
+  var wanted = String(token || "").toUpperCase();
+  return findGuestWhere(sheet, function (row) {
+    return String(row[COL_TOKEN - 1] || "").toUpperCase() === wanted;
+  });
+}
+
+function findGuestWhere(sheet, match) {
   var values = sheet.getDataRange().getValues();
   for (var i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === id) {
+    if (match(values[i])) {
       return { rowNumber: i + 1, guest: rowToGuest(values[i]) };
     }
   }
@@ -372,6 +574,8 @@ function rowToGuest(row) {
     status: asText(row[9]) || "pending",
     invitationSent: asText(row[10]),
     paid: asText(row[11]),
+    token: asText(row[12]).toUpperCase(),
+    checkedIn: asText(row[13]),
   };
 }
 

@@ -51,6 +51,8 @@
       "Costumes are encouraged, not required. There is a costume competition.",
       "We can refuse entry for unruly or disruptive behavior.",
       "",
+      "Show the door-code picture in the invitation email when you arrive. It is for you only.",
+      "",
       "See you there,",
       party().hostLine || "The hosts",
     ];
@@ -89,6 +91,8 @@
       status: "pending",
       invitationSent: "",
       paid: "",
+      token: "",
+      checkedIn: "",
     });
     writeLocal(guests);
     return { ok: true };
@@ -120,28 +124,116 @@
     });
     if (!guest) return { ok: false, error: "That request is no longer on the list." };
 
+    if (payload.preview === true) {
+      if (guest.status !== "accepted") {
+        return { ok: false, error: "Accept them before copying an invitation." };
+      }
+      if (!guest.token) guest.token = makeToken();
+      writeLocal(guests);
+      return {
+        ok: true,
+        invitationText: localInvitation(guest),
+        doorCode: doorCodeText(guest.token),
+      };
+    }
+
     if (payload.status === "accepted") {
       guest.status = "accepted";
       guest.invitationSent = new Date().toISOString();
+      if (!guest.token) guest.token = makeToken();
     } else if (payload.status === "declined") {
       guest.status = "declined";
+      guest.checkedIn = "";
     } else if (payload.status === "pending") {
       guest.status = "pending";
       guest.paid = "";
+      guest.checkedIn = "";
     } else if (payload.status === "paid") {
       if (guest.status !== "accepted") {
         return { ok: false, error: "Accept them before marking the contribution paid." };
       }
       guest.paid = "yes";
+    } else if (payload.status === "arrived") {
+      if (guest.status !== "accepted") {
+        return { ok: false, error: "Accept them before marking them inside." };
+      }
+      guest.checkedIn = new Date().toISOString();
+    } else if (payload.status === "clear-arrival") {
+      guest.checkedIn = "";
     } else if (payload.resend) {
       if (guest.status !== "accepted") {
         return { ok: false, error: "Accept them before copying an invitation." };
       }
       guest.invitationSent = new Date().toISOString();
+      if (!guest.token) guest.token = makeToken();
     }
 
     writeLocal(guests);
-    return { ok: true, invitationText: localInvitation(guest), guest: guest };
+    return {
+      ok: true,
+      invitationText: localInvitation(guest),
+      doorCode: guest.token ? doorCodeText(guest.token) : "",
+      guest: guest,
+    };
+  }
+
+  function localCheckIn(token) {
+    var code = normalizeDoorCode(token);
+    if (!code) return { ok: true, result: "unknown" };
+    var guests = readLocal();
+    var guest = null;
+    guests.forEach(function (item) {
+      if (String(item.token || "").toUpperCase() === code) guest = item;
+    });
+    if (!guest) return { ok: true, result: "unknown" };
+    if (guest.status !== "accepted") {
+      return { ok: true, result: "not-accepted", name: guest.name, status: guest.status };
+    }
+    if (guest.checkedIn) {
+      return {
+        ok: true,
+        result: "already",
+        name: guest.name,
+        email: guest.email,
+        paid: guest.paid,
+        checkedIn: guest.checkedIn,
+      };
+    }
+    guest.checkedIn = new Date().toISOString();
+    writeLocal(guests);
+    return {
+      ok: true,
+      result: "welcome",
+      name: guest.name,
+      email: guest.email,
+      paid: guest.paid,
+      checkedIn: guest.checkedIn,
+    };
+  }
+
+  function makeToken() {
+    var bytes = new Uint8Array(12);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+    else {
+      for (var i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    var hex = "";
+    for (var j = 0; j < bytes.length; j++) {
+      var piece = bytes[j].toString(16).toUpperCase();
+      hex += piece.length < 2 ? "0" + piece : piece;
+    }
+    return hex;
+  }
+
+  function doorCodeText(token) {
+    return "LATAM1." + String(token || "").toUpperCase();
+  }
+
+  function normalizeDoorCode(value) {
+    var match = String(value || "")
+      .toUpperCase()
+      .match(/LATAM1\.([0-9A-F]{16,64})/);
+    return match ? match[1] : "";
   }
 
   async function postJson(url, payload) {
@@ -221,11 +313,20 @@
     return call(body);
   }
 
+  async function checkIn(password, token) {
+    if (isDemo()) {
+      if (password !== "demo") throw new Error("That password is wrong.");
+      return unwrap(localCheckIn(token));
+    }
+    return call({ action: "checkin", password: password, token: token });
+  }
+
   window.GuestList = {
     isDemo: isDemo,
     moneyLabel: moneyLabel,
     register: register,
     list: list,
     update: update,
+    checkIn: checkIn,
   };
 })();

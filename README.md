@@ -14,7 +14,7 @@ The price people see is `priceAmount` and `priceSymbol`. The price in the invita
 
 1. Create a new Google Sheet.
 2. Go to **Extensions → Apps Script**.
-3. Replace the starter code with everything in `apps-script/Code.gs`.
+3. Replace the starter code with everything in `apps-script/Code.gs`. Add a second file named `qr` and paste `apps-script/qr.gs` into it. That file draws the door code in the invitation email.
 4. Choose the function `setup`, run it, and allow the permissions.
 5. Back in the sheet, open the **Settings** tab and replace:
    - `adminPassword` — a password you do not use anywhere else
@@ -44,8 +44,14 @@ Share that address. The host list is the same address with `admin.html` at the e
 
 1. Open the host list and enter the Settings password.
 2. On a request, choose **Accept and email**.
-3. Google sends the invitation from the account that owns the sheet. It includes the address, the group size, and the price.
+3. Google sends the invitation from the account that owns the sheet. It includes the address, the price, and a door-code picture.
 4. When the contribution arrives, choose **Mark paid**.
+
+People you accepted before door codes existed need **Resend email** so they receive a picture.
+
+## At the door
+
+Open the host list and choose **Scan at the door**, or go to `door.html` on the same site. Sign in with the host password, then open the camera and point it at the picture in their email. The page says inside, already inside, or not invited. A code only works once. **Clear arrival** on the host list lets that same picture scan again. **Mark inside** is there if the camera cannot be used.
 
 If the email fails, the host list still gives you the invitation text to copy. **Decline** does not send an email. **Restore** puts someone back on the asking list.
 

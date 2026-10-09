@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Door — Halloween</title>
+    <meta name="theme-color" content="#1a0e16" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header class="admin-header">
+        <div>
+          <p class="eyebrow">Door</p>
+          <h1 id="door-title">Halloween</h1>
+        </div>
+        <div class="header-links">
+          <a class="text-link" href="admin.html">Host list</a>
+        </div>
+      </header>
+
+      <section id="gate">
+        <form id="login-form" class="stack">
+          <div class="field">
+            <label for="password">Host password</label>
+            <input id="password" type="password" autocomplete="current-password" required />
+            <p class="hint">Same password as the host list. Guests do not use this page.</p>
+          </div>
+          <p class="form-error" id="login-error" role="alert" hidden></p>
+          <button class="button" type="submit">Open the door</button>
+        </form>
+      </section>
+
+      <section id="booth" hidden>
+        <p class="form-error" id="camera-error" role="alert" hidden></p>
+        <video id="camera" class="camera" playsinline autoplay muted hidden></video>
+        <p class="quiet" id="scan-status">Point the camera at the picture in their invitation.</p>
+        <button class="button" id="open-camera" type="button">Open the camera</button>
+        <div class="scan-result" id="result" hidden>
+          <p class="eyebrow" id="result-kicker"></p>
+          <h2 id="result-name"></h2>
+          <p id="result-detail"></p>
+          <button class="button" id="next" type="button">Next person</button>
+        </div>
+        <p class="footer-links"><button class="text-link" id="sign-out" type="button">Sign out</button></p>
+      </section>
+    </main>
+    <canvas id="frame" hidden></canvas>
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/jsQR.min.js"></script>
+    <script src="js/door.js"></script>
+  </body>
+</html>
