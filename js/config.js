@@ -4,15 +4,14 @@
 
 window.PARTY = {
   name: "Halloween",
-  hostLine: "A private gathering",
+  hostLine: "A Latin party",
   dateLabel: "Friday, October 30",
   timeLabel: "9 p.m. to 2 a.m.",
   placeLabel: "ASOBIBA Tsukuba, second floor",
   placeAddress: "724 Saiki, Tsukuba",
   placeUrl: "https://maps.app.goo.gl/qSQiDCiEJaP639ev6",
 
-  lede:
-    "A Halloween night on the second floor of ASOBIBA Tsukuba. Snacks and a soft drink bar are included, there is a costume competition, and every person needs their own invitation.",
+  lede: "Come to dance.",
 
   priceAmount: 2000,
   priceSymbol: "¥",
@@ -20,34 +19,29 @@ window.PARTY = {
   paymentPublic: "How to pay arrives in the invitation.",
 
   capacity: 0,
-  capacityNote: "Each person needs their own invitation. A yes for you does not cover anyone else.",
+  capacityNote: "",
 
   offerings: [
     {
-      title: "A soft drink bar",
-      text: "Included for everyone. The bar does not serve alcohol. You may bring your own drinks.",
-    },
-    {
-      title: "Snacks",
-      text: "We are providing snacks, not a meal. You are welcome to bring food.",
-    },
-    {
       title: "A costume competition",
-      text: "Costumes are encouraged, not required. Dress up if you want to enter.",
+      text: "Encouraged, not required.",
+    },
+    {
+      title: "Drinks and snacks",
+      text: "Soft drinks included. No alcohol, though you may bring your own. Snacks, not a meal. You may bring food.",
     },
     {
       title: "Your own invitation",
-      text: "Every person asks for their own place. We can refuse entry for unruly or disruptive behavior.",
+      text: "One person, one request. We can refuse entry.",
     },
   ],
 
   rules: [
-    "Requesting a place is not an invitation. Wait until we accept you.",
-    "Each person needs their own invitation. Do not arrive with someone who has not been accepted.",
-    "The night is Friday, October 30, from 9 p.m. to 2 a.m., on the second floor of ASOBIBA Tsukuba.",
-    "The drink bar is included and non-alcoholic. You may bring your own drinks.",
-    "We are providing snacks, not a meal. You may bring food.",
-    "Costumes are encouraged, not required. There is a costume competition.",
+    "A request is not an invitation. Wait until we accept you.",
+    "Each person needs their own invitation.",
+    "Respect other people.",
+    "El perreo is protected until 2 a.m. The playlist will not be taking objections.",
+    "Keep the place clean and organized.",
     "Pay the contribution after you are accepted. The amount is on this page.",
     "We can refuse entry, or ask you to leave, for unruly or disruptive behavior.",
   ],

@@ -23,7 +23,9 @@
   fillText("price-amount", money(party.priceAmount));
   fillText("price-note", party.priceNote);
   fillText("payment-public", party.paymentPublic);
-  fillText("capacity-note", party.capacityNote);
+  var capacityNote = document.getElementById("capacity-note");
+  if (party.capacityNote) capacityNote.textContent = party.capacityNote;
+  else capacityNote.hidden = true;
   document.title = (party.name || "Halloween") + " — request a place";
 
   var facts = document.getElementById("facts");
@@ -93,7 +95,7 @@
   var submitButton = document.getElementById("submit-request");
   var each = Number(party.priceAmount);
   estimate.textContent = isFinite(each)
-    ? "If we accept you, the contribution is " + money(each) + ". Each person requests their own place."
+    ? "If we accept you, the contribution is " + money(each) + "."
     : "Each person requests their own place.";
 
   function createId() {
@@ -110,7 +112,7 @@
     event.preventDefault();
     error.hidden = true;
     if (Date.now() - formStarted < 2500) {
-      showError("Take a moment to read the rules, then send it again.");
+      showError("Take a moment to read the commandments, then send it again.");
       return;
     }
     if (!form.reportValidity()) return;
@@ -121,10 +123,10 @@
       id: createId(),
       name: String(data.get("name") || "").trim(),
       email: String(data.get("email") || "").trim(),
-      phone: String(data.get("phone") || "").trim(),
+      phone: "",
       partySize: 1,
       companions: "",
-      costume: String(data.get("costume") || "").trim(),
+      costume: "",
       note: String(data.get("note") || "").trim(),
       agreed: data.get("agreed") === "yes",
       company: String(data.get("company") || "").trim(),
