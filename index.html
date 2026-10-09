@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Halloween — request a place</title>
+    <meta
+      name="description"
+      content="Halloween at ASOBIBA Tsukuba on Friday, October 30, with snacks, a soft drink bar, and a costume competition. Request your own place."
+    />
+    <meta name="theme-color" content="#100e0c" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,620&family=Outfit:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div class="sky" aria-hidden="true">
+      <div class="moon"></div>
+    </div>
+    <main class="card">
+      <p class="banner" id="demo-banner" hidden></p>
+
+      <header class="hero">
+        <p class="eyebrow" id="host-line"></p>
+        <h1 id="party-name"></h1>
+        <p class="lede" id="lede"></p>
+        <ul class="facts" id="facts"></ul>
+      </header>
+
+      <section class="section" aria-labelledby="evening-title">
+        <h2 id="evening-title">The evening</h2>
+        <div class="offers" id="offerings"></div>
+      </section>
+
+      <section class="section price-block" aria-labelledby="price-title">
+        <h2 id="price-title">The contribution</h2>
+        <p class="price"><span id="price-amount"></span></p>
+        <p class="price-note" id="price-note"></p>
+        <p class="quiet" id="payment-public"></p>
+      </section>
+
+      <section class="section" aria-labelledby="rules-title">
+        <h2 id="rules-title">The rules</h2>
+        <ol class="rules" id="rules"></ol>
+        <p class="quiet" id="capacity-note"></p>
+      </section>
+
+      <section class="section" aria-labelledby="request-title">
+        <h2 id="request-title">Request a place</h2>
+        <ol class="steps">
+          <li>You ask, and your name goes on our confirmation list.</li>
+          <li>We accept the people we can actually host.</li>
+          <li>If there is room, you get an email invitation for yourself, with how to pay.</li>
+        </ol>
+
+        <form id="request-form" novalidate>
+          <div class="field">
+            <label for="name">Your name</label>
+            <input id="name" name="name" type="text" autocomplete="name" maxlength="80" required />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" maxlength="120" required />
+            <p class="hint">We only write if there is a place for you.</p>
+          </div>
+          <div class="field">
+            <label for="phone">Phone <span class="optional">optional</span></label>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="40" />
+          </div>
+          <p class="hint" id="estimate"></p>
+          <div class="field">
+            <label for="costume">Costume idea <span class="optional">optional</span></label>
+            <input
+              id="costume"
+              name="costume"
+              type="text"
+              maxlength="140"
+              placeholder="If you are entering the competition"
+            />
+          </div>
+          <div class="field">
+            <label for="note">Note to the hosts <span class="optional">optional</span></label>
+            <textarea id="note" name="note" maxlength="400" rows="4"></textarea>
+          </div>
+          <div class="hp" aria-hidden="true">
+            <label for="company">Company website</label>
+            <input id="company" name="company" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+          <label class="check">
+            <input id="agreed" name="agreed" type="checkbox" value="yes" required />
+            <span>I have read the rules and will follow them if I am invited.</span>
+          </label>
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+          <button class="button" id="submit-request" type="submit">Request a place</button>
+        </form>
+
+        <div class="success" id="success" hidden>
+          <p class="eyebrow">On the list</p>
+          <h3>We have your request.</h3>
+          <p>
+            This is not an invitation yet. If we can host you, we will email
+            <strong id="success-email"></strong>
+            with how to pay <strong id="success-price"></strong>. This invitation is for you only.
+          </p>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <a href="admin.html">Host list</a>
+      </footer>
+    </main>
+    <noscript>
+      <p class="card">This invitation needs JavaScript so the request form can run.</p>
+    </noscript>
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>
