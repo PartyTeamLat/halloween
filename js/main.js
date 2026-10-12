@@ -95,7 +95,7 @@
   var submitButton = document.getElementById("submit-request");
   var each = Number(party.priceAmount);
   estimate.textContent = isFinite(each)
-    ? "If we accept you, the contribution is " + money(each) + "."
+    ? "If we save you a place, the contribution is " + money(each) + "."
     : "Each person requests their own place.";
 
   function createId() {
@@ -112,7 +112,7 @@
     event.preventDefault();
     error.hidden = true;
     if (Date.now() - formStarted < 2500) {
-      showError("Take a moment to read the commandments, then send it again.");
+      showError("Give the commandments a quick read, then try again.");
       return;
     }
     if (!form.reportValidity()) return;

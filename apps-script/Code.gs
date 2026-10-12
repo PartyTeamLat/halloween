@@ -139,7 +139,7 @@ function registerGuest(payload) {
     return { ok: false, error: "Each person needs their own invitation." };
   }
   if (payload.agreed !== true) {
-    return { ok: false, error: "Agree to the rules to request a place." };
+    return { ok: false, error: "Agree to the commandments to request a place." };
   }
 
   var lock = LockService.getScriptLock();
@@ -386,18 +386,18 @@ function invitationLines(guest, settings, hasPicture) {
     settings.address || "",
     "https://maps.app.goo.gl/qSQiDCiEJaP639ev6",
     "",
-    "This invitation is for you only.",
+    "This invitation is just for you.",
     "",
     "The contribution is " + (settings.priceLabel || "") + ".",
     settings.paymentInstructions || "",
     "",
-    "Snacks and the soft drink bar are included. The snacks are not a meal, so you may bring food. The bar does not serve alcohol, and you may bring your own drinks.",
-    "Costumes are encouraged, not required. There is a costume competition.",
-    "We can refuse entry for unruly or disruptive behavior.",
+    "Soft drinks included. Bring your own if you want alcohol. Snacks, not a meal.",
+    "Dress up if you like. A costume is welcome, not required, and there is a competition.",
+    "If someone is unruly or spoiling the night, we can ask them to leave.",
     "",
   ];
   if (hasPicture) {
-    lines.push("Show the door-code picture in this email when you arrive. It is for you only.");
+    lines.push("When you arrive, show the door-code picture in this email. It's just for you.");
     lines.push("");
   }
   lines.push("See you there,");
@@ -420,7 +420,7 @@ function invitationHtml(guest, settings) {
     } else {
       html.push("<p>" + escapeHtml(line) + "</p>");
     }
-    if (line.indexOf("Show the door-code picture") === 0) {
+    if (line.indexOf("door-code picture") !== -1) {
       html.push('<p><img src="cid:doorcode" width="260" height="260" alt="Door code"></p>');
     }
   }

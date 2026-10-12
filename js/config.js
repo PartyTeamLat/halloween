@@ -11,12 +11,12 @@ window.PARTY = {
   placeAddress: "724 Saiki, Tsukuba",
   placeUrl: "https://maps.app.goo.gl/qSQiDCiEJaP639ev6",
 
-  lede: "Come to dance.",
+  lede: "Come to dance and have fun.",
 
   priceAmount: 2000,
   priceSymbol: "¥",
-  priceNote: "per person, once your place is confirmed",
-  paymentPublic: "How to pay arrives in the invitation.",
+  priceNote: "per person, if we confirm your place",
+  paymentPublic: "We'll tell you how to pay in the invitation.",
 
   capacity: 0,
   capacityNote: "",
@@ -24,26 +24,26 @@ window.PARTY = {
   offerings: [
     {
       title: "A costume competition",
-      text: "Encouraged, not required.",
+      text: "Dress up if you want to enter. A costume is welcome, not required.",
     },
     {
       title: "Drinks and snacks",
-      text: "Soft drinks included. No alcohol, though you may bring your own. Snacks, not a meal. You may bring food.",
+      text: "Soft drinks included. Bring your own if you want alcohol. Snacks, not a meal.",
     },
     {
       title: "Your own invitation",
-      text: "One person, one request. We can refuse entry.",
+      text: "One person, one request. If you get an invitation, it is just for you.",
     },
   ],
 
   rules: [
-    "A request is not an invitation. Wait until we accept you.",
-    "Each person needs their own invitation.",
-    "Respect other people.",
-    "El perreo is protected until 2 a.m. The playlist will not be taking objections.",
-    "Keep the place clean and organized.",
-    "Pay the contribution after you are accepted. The amount is on this page.",
-    "We can refuse entry, or ask you to leave, for unruly or disruptive behavior.",
+    "Asking is the first step. We'll email you if we can save you a place.",
+    "Each person asks for their own invitation.",
+    "Look after the people around you.",
+    "Perreo until 2 a.m. The playlist is not up for debate.",
+    "Help us leave the place tidy.",
+    "The contribution is on this page. Pay it after we invite you.",
+    "If someone is unruly or spoiling the night, we can turn them away or ask them to leave.",
   ],
 
   // Paste the Apps Script web app URL after you deploy it.
