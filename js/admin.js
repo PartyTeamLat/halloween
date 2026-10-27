@@ -85,7 +85,7 @@
       " still asking · " +
       total.paid +
       " marked paid";
-    if (total.notes) line += " · " + total.notes + (total.notes === 1 ? " note" : " notes");
+    if (total.notes) line += " · " + total.notes + " overbooked";
     summary.textContent = line;
     var meter = document.getElementById("meter");
     if (!capacity) {
@@ -160,7 +160,7 @@
       var pill = document.createElement("span");
       var pillState = guest.checkedIn ? "inside" : guest.paid === "yes" ? "paid" : guest.status || "pending";
       pill.className = "pill pill-" + (pillState === "paid" ? "accepted" : pillState);
-      pill.textContent = pillState;
+      pill.textContent = pillState === "note" ? "overbooked" : pillState;
       head.appendChild(title);
       head.appendChild(pill);
 
@@ -198,16 +198,6 @@
           )
         );
         actions.appendChild(button("Decline", "button button-quiet", "declined", guest.id));
-      } else if (guest.status === "note") {
-        actions.appendChild(
-          button(
-            window.GuestList.isDemo() ? "Invite" : "Invite and email",
-            "button",
-            "accepted",
-            guest.id
-          )
-        );
-        actions.appendChild(button("Decline", "button button-quiet", "declined", guest.id));
       } else if (guest.status === "accepted") {
         if (guest.paid !== "yes") {
           actions.appendChild(button("Mark paid", "button", "paid", guest.id));
@@ -222,6 +212,8 @@
         if (!window.GuestList.isDemo()) {
           actions.appendChild(button("Resend email", "button button-quiet", "resend", guest.id));
         }
+        actions.appendChild(button("Decline", "button button-quiet", "declined", guest.id));
+      } else if (guest.status === "note") {
         actions.appendChild(button("Decline", "button button-quiet", "declined", guest.id));
       } else {
         actions.appendChild(button("Restore", "button button-quiet", "pending", guest.id));
@@ -371,9 +363,7 @@
       return;
     }
 
-    var acceptPrompt = guest.status === "note"
-      ? "Invite " + guest.name + " and email an invitation to " + guest.email + "? The page told them the planned space is full."
-      : window.GuestList.isDemo()
+    var acceptPrompt = window.GuestList.isDemo()
       ? "Accept " + guest.name + "? You can open their door code afterward. Email starts once the Google Sheet is connected."
       : "Accept " + guest.name + " and email the invitation, with their door code, to " + guest.email + "?";
     var prompts = {
