@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Halloween — request a place</title>
+    <title>Halloween — the space is full</title>
     <meta
       name="description"
-      content="A Latin party for Halloween at ASOBIBA Tsukuba on Friday, October 30."
+      content="The planned space for the Latin Halloween party at ASOBIBA Tsukuba is full. Leave a note if you still want to come or have a question."
     />
     <meta name="theme-color" content="#1a0e16" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -123,8 +123,8 @@
       </section>
 
       <section class="section" aria-labelledby="request-title">
-        <h2 id="request-title">Request a place</h2>
-        <p class="quiet ask-line">Tell us you'd like to come. If we can host you, we'll email an invitation and how to pay.</p>
+        <h2 id="request-title">The space is full</h2>
+        <p class="quiet ask-line">We've filled the places we planned for. If enough people still want to come, we can ask the venue about a few more. Send a question, or tell us you'd like to come if that happens.</p>
 
         <form id="request-form" novalidate>
           <div class="field">
@@ -134,12 +134,11 @@
           <div class="field">
             <label for="email">Email</label>
             <input id="email" name="email" type="email" autocomplete="email" maxlength="120" required />
-            <p class="hint">We'll only write if there's a place for you.</p>
+            <p class="hint">We'll write only if more room opens, or to answer your question.</p>
           </div>
-          <p class="hint" id="estimate"></p>
           <div class="field">
-            <label for="note">Note to the hosts <span class="optional">optional</span></label>
-            <textarea id="note" name="note" maxlength="400" rows="4"></textarea>
+            <label for="note">Your note</label>
+            <textarea id="note" name="note" maxlength="400" rows="4" required></textarea>
           </div>
           <div class="hp" aria-hidden="true">
             <label for="company">Company website</label>
@@ -147,19 +146,19 @@
           </div>
           <label class="check">
             <input id="agreed" name="agreed" type="checkbox" value="yes" required />
-            <span>I've read the commandments, and I'll follow them if I'm invited.</span>
+            <span>I understand the planned space is full, and this note is not a place.</span>
           </label>
           <p class="form-error" id="form-error" role="alert" hidden></p>
-          <button class="button" id="submit-request" type="submit">Request a place</button>
+          <button class="button" id="submit-request" type="submit">Send a note</button>
         </form>
 
         <div class="success" id="success" hidden>
-          <p class="eyebrow">On the list</p>
-          <h3>We have your request.</h3>
+          <p class="eyebrow">Received</p>
+          <h3>We have your note.</h3>
           <p>
-            You're on the list, which is not an invitation yet. If we can host you, we'll email
+            This is not an invitation. We'll email
             <strong id="success-email"></strong>
-            with how to pay <strong id="success-price"></strong>. That invitation is just for you.
+            only if the venue can give us more room, or to answer what you asked.
           </p>
         </div>
       </section>

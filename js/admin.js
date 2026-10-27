@@ -51,12 +51,14 @@
           total.accepted += size;
           if (guest.paid === "yes") total.paid += size;
           if (guest.checkedIn) total.inside += 1;
+        } else if (guest.status === "note") {
+          total.notes += 1;
         } else if (guest.status === "declined") {
           total.declined += 1;
         }
         return total;
       },
-      { pending: 0, asking: 0, accepted: 0, paid: 0, declined: 0, inside: 0 }
+      { pending: 0, asking: 0, accepted: 0, paid: 0, declined: 0, inside: 0, notes: 0 }
     );
   }
 
@@ -74,7 +76,7 @@
     var total = counts();
     var capacity = Number(party.capacity);
     var summary = document.getElementById("stats");
-    summary.textContent =
+    var line =
       total.accepted +
       " places confirmed · " +
       total.inside +
@@ -83,6 +85,8 @@
       " still asking · " +
       total.paid +
       " marked paid";
+    if (total.notes) line += " · " + total.notes + (total.notes === 1 ? " note" : " notes");
+    summary.textContent = line;
     var meter = document.getElementById("meter");
     if (!capacity) {
       meter.hidden = true;
@@ -188,6 +192,16 @@
         actions.appendChild(
           button(
             window.GuestList.isDemo() ? "Accept" : "Accept and email",
+            "button",
+            "accepted",
+            guest.id
+          )
+        );
+        actions.appendChild(button("Decline", "button button-quiet", "declined", guest.id));
+      } else if (guest.status === "note") {
+        actions.appendChild(
+          button(
+            window.GuestList.isDemo() ? "Invite" : "Invite and email",
             "button",
             "accepted",
             guest.id
@@ -357,7 +371,9 @@
       return;
     }
 
-    var acceptPrompt = window.GuestList.isDemo()
+    var acceptPrompt = guest.status === "note"
+      ? "Invite " + guest.name + " and email an invitation to " + guest.email + "? The page told them the planned space is full."
+      : window.GuestList.isDemo()
       ? "Accept " + guest.name + "? You can open their door code afterward. Email starts once the Google Sheet is connected."
       : "Accept " + guest.name + " and email the invitation, with their door code, to " + guest.email + "?";
     var prompts = {

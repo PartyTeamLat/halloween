@@ -26,7 +26,7 @@
   var capacityNote = document.getElementById("capacity-note");
   if (party.capacityNote) capacityNote.textContent = party.capacityNote;
   else capacityNote.hidden = true;
-  document.title = (party.name || "Halloween") + " — request a place";
+  document.title = (party.name || "Halloween") + " — the space is full";
 
   var facts = document.getElementById("facts");
   [
@@ -89,14 +89,9 @@
   }
 
   var form = document.getElementById("request-form");
-  var estimate = document.getElementById("estimate");
   var error = document.getElementById("form-error");
   var success = document.getElementById("success");
   var submitButton = document.getElementById("submit-request");
-  var each = Number(party.priceAmount);
-  estimate.textContent = isFinite(each)
-    ? "If we save you a place, the contribution is " + money(each) + "."
-    : "Each person requests their own place.";
 
   function createId() {
     if (window.crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -112,7 +107,7 @@
     event.preventDefault();
     error.hidden = true;
     if (Date.now() - formStarted < 2500) {
-      showError("Give the commandments a quick read, then try again.");
+      showError("Give it a second, then send the note again.");
       return;
     }
     if (!form.reportValidity()) return;
@@ -129,6 +124,7 @@
       costume: "",
       note: String(data.get("note") || "").trim(),
       agreed: data.get("agreed") === "yes",
+      kind: "note",
       company: String(data.get("company") || "").trim(),
     };
 
@@ -139,12 +135,11 @@
       form.hidden = true;
       success.hidden = false;
       document.getElementById("success-email").textContent = payload.email;
-      document.getElementById("success-price").textContent = window.GuestList.moneyLabel();
       success.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (err) {
       showError(err.message || "Could not send that request.");
       submitButton.disabled = false;
-      submitButton.textContent = "Request a place";
+      submitButton.textContent = "Send a note";
     }
   });
 })();

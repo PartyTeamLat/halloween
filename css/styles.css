@@ -443,6 +443,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .pill-pending { color: #fffaf6; background: var(--ember); }
+.pill-note { color: var(--text); border: 1px solid var(--line); }
 .pill-accepted { color: #fffaf6; background: var(--sage); }
 .pill-inside { color: #fffaf6; background: var(--gold-strong); }
 .pill-declined { color: var(--muted); border: 1px solid var(--line); }

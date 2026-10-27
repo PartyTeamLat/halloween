@@ -130,16 +130,25 @@ function registerGuest(payload) {
   var costume = clean(payload.costume, 140);
   var note = clean(payload.note, 400);
   var partySize = parseInt(payload.partySize, 10);
+  var isNote = payload.kind === "note";
 
-  if (name.length < 2) return { ok: false, error: "Add the name you want on the list." };
+  if (name.length < 2) return { ok: false, error: "Add your name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: "That email does not look complete." };
   }
-  if (partySize !== 1) {
+  if (!isNote && partySize !== 1) {
     return { ok: false, error: "Each person needs their own invitation." };
   }
+  if (isNote && note.length < 2) {
+    return { ok: false, error: "Write a note or a question." };
+  }
   if (payload.agreed !== true) {
-    return { ok: false, error: "Agree to the commandments to request a place." };
+    return {
+      ok: false,
+      error: isNote
+        ? "Confirm that you understand the planned space is full."
+        : "Agree to the commandments to request a place.",
+    };
   }
 
   var lock = LockService.getScriptLock();
@@ -151,7 +160,12 @@ function registerGuest(payload) {
     for (var i = 0; i < rows.length; i++) {
       if (rows[i].id === id) return { ok: true, already: true };
       if (String(rows[i].email).toLowerCase() === email && rows[i].status !== "declined") {
-        return { ok: false, error: "That email is already on the confirmation list." };
+        return {
+          ok: false,
+          error: rows[i].status === "note"
+            ? "We already have a note from that email."
+            : "That email is already on the confirmation list.",
+        };
       }
     }
     sheet.appendRow([
@@ -160,11 +174,11 @@ function registerGuest(payload) {
       safeCell(name),
       safeCell(email),
       safeCell(phone),
-      String(partySize),
-      safeCell(partySize > 1 ? companions : ""),
+      "1",
+      "",
       safeCell(costume),
       safeCell(note),
-      "pending",
+      isNote ? "note" : "pending",
       "",
       "",
       "",
@@ -528,7 +542,7 @@ function readGuests(sheet) {
     if (!values[i][0]) continue;
     guests.push(rowToGuest(values[i]));
   }
-  var rank = { pending: 0, accepted: 1, declined: 2 };
+  var rank = { pending: 0, note: 1, accepted: 2, declined: 3 };
   guests.sort(function (a, b) {
     var byStatus = (rank[a.status] || 9) - (rank[b.status] || 9);
     if (byStatus !== 0) return byStatus;

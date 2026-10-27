@@ -61,21 +61,25 @@
 
   function localRegister(payload) {
     if (payload.company) return { ok: true };
-    if (Number(payload.partySize) > 1) {
+    if (Number(payload.partySize) > 1 && payload.kind !== "note") {
       return { ok: false, error: "Each person needs their own invitation." };
+    }
+    if (payload.kind === "note" && String(payload.note || "").trim().length < 2) {
+      return { ok: false, error: "Write a note or a question." };
     }
     var guests = readLocal();
     var email = String(payload.email || "").toLowerCase();
-    var existing = guests.some(function (guest) {
-      return (
-        String(guest.email || "").toLowerCase() === email &&
-        guest.status !== "declined"
-      );
+    var existing = null;
+    guests.forEach(function (guest) {
+      if (String(guest.email || "").toLowerCase() === email && guest.status !== "declined") existing = guest;
     });
     if (existing) {
       return {
         ok: false,
-        error: "That email is already on the confirmation list.",
+        error:
+          existing.status === "note"
+            ? "We already have a note from that email."
+            : "That email is already on the confirmation list.",
       };
     }
     guests.push({
@@ -88,7 +92,7 @@
       companions: payload.companions || "",
       costume: payload.costume || "",
       note: payload.note || "",
-      status: "pending",
+      status: payload.kind === "note" ? "note" : "pending",
       invitationSent: "",
       paid: "",
       token: "",
