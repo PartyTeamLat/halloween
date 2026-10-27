@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Costume contest — Halloween</title>
+    <meta name="theme-color" content="#1a0e16" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header class="admin-header">
+        <div>
+          <p class="eyebrow">Costume contest</p>
+          <h1 id="contest-title">Halloween</h1>
+        </div>
+        <div class="header-links">
+          <a class="text-link" href="admin.html">Host list</a>
+        </div>
+      </header>
+
+      <p class="quiet ask-line">Pick your name, then the costume you want to win. One vote each. You can change it.</p>
+      <p class="form-error" id="load-error" role="alert" hidden></p>
+      <p class="quiet" id="empty-ballot" hidden>The hosts have not added contestants yet.</p>
+
+      <form id="vote-form" class="ballot-form" hidden>
+        <div class="field">
+          <label for="voter">I am</label>
+          <select id="voter" name="voter" required>
+            <option value="">Choose your name</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="choice">My vote</label>
+          <select id="choice" name="choice" required>
+            <option value="">Choose a costume</option>
+          </select>
+        </div>
+        <p class="form-error" id="vote-error" role="alert" hidden></p>
+        <button class="button" id="vote-button" type="submit">Cast my vote</button>
+      </form>
+
+      <div class="success" id="vote-success" hidden>
+        <p class="eyebrow">Counted</p>
+        <h3>Your vote is in.</h3>
+        <p id="vote-line"></p>
+        <button class="button button-quiet" id="change-vote" type="button">Change my vote</button>
+      </div>
+
+      <section class="section" aria-labelledby="host-title">
+        <h2 id="host-title">Organizers</h2>
+        <form id="host-login" class="stack">
+          <div class="field">
+            <label for="password">Host password</label>
+            <input id="password" type="password" autocomplete="current-password" required />
+          </div>
+          <p class="form-error" id="host-error" role="alert" hidden></p>
+          <button class="button" type="submit">Open the ballot</button>
+        </form>
+
+        <div id="host-board" hidden>
+          <p class="quiet" id="vote-total"></p>
+          <div id="results"></div>
+          <form id="add-form" class="ballot-form">
+            <div class="field">
+              <label for="add-guest">Add a contestant</label>
+              <select id="add-guest" required>
+                <option value="">Choose an invited guest</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="add-name">Name on the ballot <span class="optional">optional</span></label>
+              <input id="add-name" type="text" maxlength="80" placeholder="Leave blank to use their name" />
+            </div>
+            <p class="form-error" id="add-error" role="alert" hidden></p>
+            <button class="button" type="submit">Add to the ballot</button>
+          </form>
+          <p class="footer-links"><button class="text-link" id="host-sign-out" type="button">Sign out</button></p>
+        </div>
+      </section>
+    </main>
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/contest.js"></script>
+  </body>
+</html>

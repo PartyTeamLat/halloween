@@ -81,6 +81,7 @@ function setup() {
     settings.getRange(1, 1, 1, 2).setFontWeight("bold");
     settings.setFrozenRows(1);
   }
+  ensureContestSheets();
 }
 
 function doGet(e) {
@@ -115,6 +116,10 @@ function handle(payload) {
     if (payload.action === "list") return listGuests(payload);
     if (payload.action === "update") return updateGuest(payload);
     if (payload.action === "checkin") return checkInGuest(payload);
+    if (payload.action === "contest") return contestState(payload);
+    if (payload.action === "contestVote") return contestVote(payload);
+    if (payload.action === "contestAdd") return contestAdd(payload);
+    if (payload.action === "contestRemove") return contestRemove(payload);
     return { ok: false, error: "Unknown request." };
   } catch (err) {
     return { ok: false, error: err.message || "The guest list could not do that." };
@@ -611,4 +616,197 @@ function safeCell(value) {
   var text = String(value || "");
   if (/^[=+\-@]/.test(text)) return "'" + text;
   return text;
+}
+
+function ensureContestSheets() {
+  sheetWithHeaders("Contestants", ["id", "guestId", "name", "added"]);
+  sheetWithHeaders("Votes", ["voterId", "contestantId", "updated"]);
+}
+
+function sheetWithHeaders(name, headers) {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  if (String(sheet.getRange(1, 1).getValue()) !== headers[0]) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+    sheet.setFrozenRows(1);
+  }
+  sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), 2), headers.length).setNumberFormat("@");
+  return sheet;
+}
+
+function contestantSheet() {
+  ensureContestSheets();
+  return SpreadsheetApp.getActive().getSheetByName("Contestants");
+}
+
+function voteSheet() {
+  ensureContestSheets();
+  return SpreadsheetApp.getActive().getSheetByName("Votes");
+}
+
+function readContestants() {
+  return readRows(contestantSheet(), function (row) {
+    if (!row[0]) return null;
+    return { id: asText(row[0]), guestId: asText(row[1]), name: asText(row[2]), added: asText(row[3]) };
+  });
+}
+
+function readVotes() {
+  return readRows(voteSheet(), function (row) {
+    if (!row[0]) return null;
+    return { voterId: asText(row[0]), contestantId: asText(row[1]), updated: asText(row[2]) };
+  });
+}
+
+function readRows(sheet, map) {
+  var values = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var i = 1; i < values.length; i++) {
+    var item = map(values[i]);
+    if (item) rows.push(item);
+  }
+  return rows;
+}
+
+function acceptedGuests() {
+  return readGuests(guestSheet()).filter(function (guest) {
+    return guest.status === "accepted";
+  });
+}
+
+function voterChoices(guests) {
+  var counts = {};
+  guests.forEach(function (guest) {
+    var name = guest.name || "Guest";
+    counts[name] = (counts[name] || 0) + 1;
+  });
+  var seen = {};
+  return guests
+    .map(function (guest) {
+      var name = guest.name || "Guest";
+      var label = name;
+      if (counts[name] > 1) {
+        seen[name] = (seen[name] || 0) + 1;
+        var mail = String(guest.email || "").split("@")[0];
+        label = name + (mail ? " · " + mail : " (" + seen[name] + ")");
+      }
+      return { id: guest.id, name: label, plain: name };
+    })
+    .sort(function (a, b) {
+      return a.name.localeCompare(b.name);
+    });
+}
+
+function contestState(payload) {
+  var host = false;
+  if (payload.password) {
+    requireHost(payload.password);
+    host = true;
+  }
+  var contestants = readContestants();
+  var votes = host ? readVotes() : [];
+  var counts = {};
+  votes.forEach(function (vote) {
+    counts[vote.contestantId] = (counts[vote.contestantId] || 0) + 1;
+  });
+  return {
+    ok: true,
+    voters: voterChoices(acceptedGuests()).map(function (voter) {
+      return { id: voter.id, name: voter.name };
+    }),
+    contestants: contestants
+      .map(function (contestant) {
+        var item = { id: contestant.id, guestId: contestant.guestId, name: contestant.name };
+        if (host) item.votes = counts[contestant.id] || 0;
+        return item;
+      })
+      .sort(function (a, b) {
+        if (host && b.votes !== a.votes) return b.votes - a.votes;
+        return a.name.localeCompare(b.name);
+      }),
+    totalVotes: host ? votes.length : 0,
+  };
+}
+
+function contestAdd(payload) {
+  requireHost(payload.password);
+  var guestId = clean(payload.guestId, 80);
+  var found = findGuest(guestSheet(), guestId);
+  if (!found || found.guest.status !== "accepted") {
+    return { ok: false, error: "Choose someone who was invited." };
+  }
+  var name = clean(payload.name, 80) || found.guest.name;
+  if (name.length < 2) return { ok: false, error: "Add the name that should appear on the ballot." };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var contestants = readContestants();
+    for (var i = 0; i < contestants.length; i++) {
+      if (contestants[i].guestId === guestId) {
+        return { ok: false, error: "That person is already on the ballot." };
+      }
+    }
+    contestantSheet().appendRow([Utilities.getUuid(), guestId, safeCell(name), new Date().toISOString()]);
+    return contestState(payload);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function contestRemove(payload) {
+  requireHost(payload.password);
+  var id = clean(payload.id, 80);
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    deleteRowsWhere(contestantSheet(), 0, id);
+    deleteRowsWhere(voteSheet(), 1, id);
+    return contestState(payload);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function contestVote(payload) {
+  var voterId = clean(payload.voterId, 80);
+  var contestantId = clean(payload.contestantId, 80);
+  var found = findGuest(guestSheet(), voterId);
+  if (!found || found.guest.status !== "accepted") {
+    return { ok: false, error: "Pick your name from the invited guests." };
+  }
+  var contestants = readContestants();
+  var contestant = null;
+  for (var i = 0; i < contestants.length; i++) {
+    if (contestants[i].id === contestantId) contestant = contestants[i];
+  }
+  if (!contestant) return { ok: false, error: "That person is no longer on the ballot." };
+  if (contestant.guestId === found.guest.id) return { ok: false, error: "Vote for someone else." };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var sheet = voteSheet();
+    var values = sheet.getDataRange().getValues();
+    var rowNumber = 0;
+    for (var r = 1; r < values.length; r++) {
+      if (String(values[r][0]) === voterId) rowNumber = r + 1;
+    }
+    if (rowNumber) {
+      sheet.getRange(rowNumber, 2, 1, 2).setValues([[contestantId, new Date().toISOString()]]);
+    } else {
+      sheet.appendRow([voterId, contestantId, new Date().toISOString()]);
+    }
+    return { ok: true, name: contestant.name, replaced: rowNumber > 0 };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteRowsWhere(sheet, column, value) {
+  var values = sheet.getDataRange().getValues();
+  for (var i = values.length - 1; i >= 1; i--) {
+    if (String(values[i][column]) === value) sheet.deleteRow(i + 1);
+  }
 }

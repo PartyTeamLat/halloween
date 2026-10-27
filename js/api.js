@@ -325,6 +325,151 @@
     return call({ action: "checkin", password: password, token: token });
   }
 
+  function readContestLocal() {
+    try {
+      var parsed = JSON.parse(localStorage.getItem("halloween-contest-v1") || "{}");
+      return {
+        contestants: parsed.contestants || [],
+        votes: parsed.votes || [],
+      };
+    } catch (err) {
+      return { contestants: [], votes: [] };
+    }
+  }
+
+  function writeContestLocal(data) {
+    localStorage.setItem("halloween-contest-v1", JSON.stringify(data));
+  }
+
+  function localContestState(password) {
+    if (password && password !== "demo") throw new Error("That password is wrong.");
+    var data = readContestLocal();
+    var accepted = readLocal().filter(function (guest) {
+      return guest.status === "accepted";
+    });
+    var counts = {};
+    if (password) {
+      data.votes.forEach(function (vote) {
+        counts[vote.contestantId] = (counts[vote.contestantId] || 0) + 1;
+      });
+    }
+    return {
+      ok: true,
+      voters: accepted
+        .map(function (guest) {
+          return { id: guest.id, name: guest.name || "Guest" };
+        })
+        .sort(function (a, b) {
+          return a.name.localeCompare(b.name);
+        }),
+      contestants: data.contestants
+        .map(function (contestant) {
+          var item = { id: contestant.id, guestId: contestant.guestId, name: contestant.name };
+          if (password) item.votes = counts[contestant.id] || 0;
+          return item;
+        })
+        .sort(function (a, b) {
+          if (password && b.votes !== a.votes) return b.votes - a.votes;
+          return a.name.localeCompare(b.name);
+        }),
+      totalVotes: password ? data.votes.length : 0,
+    };
+  }
+
+  function localContestAdd(password, payload) {
+    if (password !== "demo") throw new Error("That password is wrong.");
+    var guests = readLocal();
+    var guest = null;
+    guests.forEach(function (item) {
+      if (item.id === payload.guestId) guest = item;
+    });
+    if (!guest || guest.status !== "accepted") {
+      return { ok: false, error: "Choose someone who was invited." };
+    }
+    var data = readContestLocal();
+    var taken = data.contestants.some(function (contestant) {
+      return contestant.guestId === guest.id;
+    });
+    if (taken) return { ok: false, error: "That person is already on the ballot." };
+    var name = String(payload.name || "").trim() || guest.name;
+    if (name.length < 2) return { ok: false, error: "Add the name that should appear on the ballot." };
+    data.contestants.push({
+      id: "c-" + Date.now().toString(16),
+      guestId: guest.id,
+      name: name,
+    });
+    writeContestLocal(data);
+    return localContestState(password);
+  }
+
+  function localContestRemove(password, id) {
+    if (password !== "demo") throw new Error("That password is wrong.");
+    var data = readContestLocal();
+    data.contestants = data.contestants.filter(function (contestant) {
+      return contestant.id !== id;
+    });
+    data.votes = data.votes.filter(function (vote) {
+      return vote.contestantId !== id;
+    });
+    writeContestLocal(data);
+    return localContestState(password);
+  }
+
+  function localContestVote(payload) {
+    var guests = readLocal();
+    var voter = null;
+    guests.forEach(function (guest) {
+      if (guest.id === payload.voterId) voter = guest;
+    });
+    if (!voter || voter.status !== "accepted") {
+      return { ok: false, error: "Pick your name from the invited guests." };
+    }
+    var data = readContestLocal();
+    var contestant = null;
+    data.contestants.forEach(function (item) {
+      if (item.id === payload.contestantId) contestant = item;
+    });
+    if (!contestant) return { ok: false, error: "That person is no longer on the ballot." };
+    if (contestant.guestId === voter.id) return { ok: false, error: "Vote for someone else." };
+    var replaced = false;
+    var kept = false;
+    data.votes.forEach(function (vote) {
+      if (vote.voterId === voter.id) {
+        vote.contestantId = contestant.id;
+        replaced = true;
+        kept = true;
+      }
+    });
+    if (!kept) data.votes.push({ voterId: voter.id, contestantId: contestant.id });
+    writeContestLocal(data);
+    return { ok: true, name: contestant.name, replaced: replaced };
+  }
+
+  async function contest(password) {
+    if (isDemo()) return unwrap(localContestState(password || ""));
+    return call(password ? { action: "contest", password: password } : { action: "contest" });
+  }
+
+  async function contestVote(payload) {
+    if (isDemo()) return unwrap(localContestVote(payload));
+    return call({ action: "contestVote", voterId: payload.voterId, contestantId: payload.contestantId });
+  }
+
+  async function contestAdd(password, payload) {
+    if (isDemo()) return unwrap(localContestAdd(password, payload));
+    return call({
+      action: "contestAdd",
+      password: password,
+      guestId: payload.guestId,
+      name: payload.name || "",
+    });
+  }
+
+  async function contestRemove(password, id) {
+    if (isDemo()) return unwrap(localContestRemove(password, id));
+    return call({ action: "contestRemove", password: password, id: id });
+  }
+
   window.GuestList = {
     isDemo: isDemo,
     moneyLabel: moneyLabel,
@@ -332,5 +477,9 @@
     list: list,
     update: update,
     checkIn: checkIn,
+    contest: contest,
+    contestVote: contestVote,
+    contestAdd: contestAdd,
+    contestRemove: contestRemove,
   };
 })();
