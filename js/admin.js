@@ -320,38 +320,6 @@
     return message;
   }
 
-  function waitingGuests() {
-    return guests.filter(function (guest) {
-      return guest.status === "accepted" && guest.rsvp !== "yes" && guest.rsvp !== "no";
-    });
-  }
-
-  document.getElementById("remind").addEventListener("click", async function () {
-    var waiting = waitingGuests();
-    listError.hidden = true;
-    if (!waiting.length) {
-      listError.hidden = false;
-      listError.textContent = "Everyone invited has already answered.";
-      return;
-    }
-    var countLabel = waiting.length === 1 ? "1 person who hasn't" : waiting.length + " people who haven't";
-    if (!window.confirm("Email " + countLabel + " answered? Each message has two links. One tap.")) return;
-    var button = document.getElementById("remind");
-    button.disabled = true;
-    try {
-      var reminded = await window.GuestList.remind(password);
-      await load();
-      if (reminded.warning) {
-        listError.hidden = false;
-        listError.textContent = scriptHint(reminded.warning);
-      }
-    } catch (err) {
-      listError.hidden = false;
-      listError.textContent = scriptHint(err.message || "Could not send the reminders.");
-    }
-    button.disabled = false;
-  });
-
   document.getElementById("refresh").addEventListener("click", load);
 
   document.getElementById("filters").addEventListener("click", function (event) {
