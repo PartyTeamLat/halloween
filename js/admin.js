@@ -51,6 +51,9 @@
           total.accepted += size;
           if (guest.paid === "yes") total.paid += size;
           if (guest.checkedIn) total.inside += 1;
+          if (guest.rsvp === "yes") total.coming += 1;
+          else if (guest.rsvp === "no") total.absent += 1;
+          else total.waiting += 1;
         } else if (guest.status === "note") {
           total.notes += 1;
         } else if (guest.status === "declined") {
@@ -58,7 +61,7 @@
         }
         return total;
       },
-      { pending: 0, asking: 0, accepted: 0, paid: 0, declined: 0, inside: 0, notes: 0 }
+      { pending: 0, asking: 0, accepted: 0, paid: 0, declined: 0, inside: 0, notes: 0, coming: 0, waiting: 0, absent: 0 }
     );
   }
 
@@ -68,6 +71,9 @@
       if (filter === "paid") return guest.status === "accepted" && guest.paid === "yes";
       if (filter === "inside") return guest.status === "accepted" && !!guest.checkedIn;
       if (filter === "accepted") return guest.status === "accepted";
+      if (filter === "coming") return guest.status === "accepted" && guest.rsvp === "yes";
+      if (filter === "waiting") return guest.status === "accepted" && guest.rsvp !== "yes" && guest.rsvp !== "no";
+      if (filter === "cant") return guest.status === "accepted" && guest.rsvp === "no";
       return guest.status === filter;
     });
   }
@@ -85,6 +91,10 @@
       " still asking · " +
       total.paid +
       " marked paid";
+    if (total.accepted) {
+      line += " · " + total.coming + " coming · " + total.waiting + " haven't answered";
+      if (total.absent) line += " · " + total.absent + " can't come";
+    }
     if (total.notes) line += " · " + total.notes + " overbooked";
     summary.textContent = line;
     var meter = document.getElementById("meter");
@@ -182,6 +192,13 @@
         addLine(body, "Invitation", formatWhen(guest.invitationSent));
       }
       if (guest.status === "accepted") {
+        addLine(
+          body,
+          "Reply",
+          guest.rsvp === "yes" ? "Coming" : guest.rsvp === "no" ? "Can't come" : "Hasn't answered"
+        );
+        if (guest.rsvpAt) addLine(body, "Replied", formatWhen(guest.rsvpAt));
+        if (guest.reminderSent) addLine(body, "Reminded", formatWhen(guest.reminderSent));
         addLine(body, "Paid", guest.paid === "yes" ? "Yes" : "Not yet");
       }
       if (guest.checkedIn) addLine(body, "Inside", formatWhen(guest.checkedIn));
@@ -208,6 +225,11 @@
           actions.appendChild(button("Mark inside", "button button-quiet", "arrived", guest.id));
         } else {
           actions.appendChild(button("Clear arrival", "button button-quiet", "clear-arrival", guest.id));
+        }
+        if (!window.GuestList.isDemo() && guest.rsvp !== "yes" && guest.rsvp !== "no") {
+          actions.appendChild(
+            button(guest.reminderSent ? "Remind again" : "Remind", "button button-quiet", "remind", guest.id)
+          );
         }
         if (!window.GuestList.isDemo()) {
           actions.appendChild(button("Resend email", "button button-quiet", "resend", guest.id));
@@ -291,6 +313,45 @@
     document.getElementById("code-panel").hidden = true;
   });
 
+  function scriptHint(message) {
+    if (message === "Unknown request.") {
+      return "Reminders are not on the guest list yet. Paste the new Apps Script and deploy a new version.";
+    }
+    return message;
+  }
+
+  function waitingGuests() {
+    return guests.filter(function (guest) {
+      return guest.status === "accepted" && guest.rsvp !== "yes" && guest.rsvp !== "no";
+    });
+  }
+
+  document.getElementById("remind").addEventListener("click", async function () {
+    var waiting = waitingGuests();
+    listError.hidden = true;
+    if (!waiting.length) {
+      listError.hidden = false;
+      listError.textContent = "Everyone invited has already answered.";
+      return;
+    }
+    var countLabel = waiting.length === 1 ? "1 person who hasn't" : waiting.length + " people who haven't";
+    if (!window.confirm("Email " + countLabel + " answered? Each message has two links. One tap.")) return;
+    var button = document.getElementById("remind");
+    button.disabled = true;
+    try {
+      var reminded = await window.GuestList.remind(password);
+      await load();
+      if (reminded.warning) {
+        listError.hidden = false;
+        listError.textContent = scriptHint(reminded.warning);
+      }
+    } catch (err) {
+      listError.hidden = false;
+      listError.textContent = scriptHint(err.message || "Could not send the reminders.");
+    }
+    button.disabled = false;
+  });
+
   document.getElementById("refresh").addEventListener("click", load);
 
   document.getElementById("filters").addEventListener("click", function (event) {
@@ -341,6 +402,26 @@
     var action = target.dataset.action;
     var guest = findGuest(id);
     if (!guest) return;
+
+    if (action === "remind") {
+      var again = guest.reminderSent ? " again" : "";
+      if (!window.confirm("Email " + guest.name + " two links" + again + ", so they can tap once?")) return;
+      target.disabled = true;
+      listError.hidden = true;
+      try {
+        var reminded = await window.GuestList.remind(password, id);
+        await load();
+        if (reminded.warning) {
+          listError.hidden = false;
+          listError.textContent = scriptHint(reminded.warning);
+        }
+      } catch (err) {
+        listError.hidden = false;
+        listError.textContent = scriptHint(err.message || "Could not send that reminder.");
+        target.disabled = false;
+      }
+      return;
+    }
 
     if (action === "copy" || action === "code") {
       target.disabled = true;
@@ -412,6 +493,9 @@
       "submitted",
       "invitationSent",
       "checkedIn",
+      "rsvp",
+      "rsvpAt",
+      "reminderSent",
     ];
     var lines = [header.join(",")];
     guests.forEach(function (guest) {

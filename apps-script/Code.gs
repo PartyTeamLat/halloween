@@ -28,6 +28,9 @@ var GUEST_HEADERS = [
   "paid",
   "token",
   "checkedIn",
+  "rsvp",
+  "rsvpAt",
+  "reminderSent",
 ];
 
 var COL_STATUS = 10;
@@ -35,6 +38,10 @@ var COL_SENT = 11;
 var COL_PAID = 12;
 var COL_TOKEN = 13;
 var COL_CHECKED = 14;
+var COL_RSVP = 15;
+var COL_RSVP_AT = 16;
+var COL_REMINDED = 17;
+var CONFIRM_PAGE = "https://partyteamlat.github.io/halloween/confirm.html";
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -59,7 +66,7 @@ function setup() {
     guests.getRange(1, 1, 1, GUEST_HEADERS.length).setValues([GUEST_HEADERS]);
     guests.getRange(1, 1, 1, GUEST_HEADERS.length).setFontWeight("bold");
     guests.setFrozenRows(1);
-    guests.getRange("A:N").setNumberFormat("@");
+    guests.getRange("A:Q").setNumberFormat("@");
   }
 
   var settings = ss.getSheetByName("Settings");
@@ -116,6 +123,8 @@ function handle(payload) {
     if (payload.action === "list") return listGuests(payload);
     if (payload.action === "update") return updateGuest(payload);
     if (payload.action === "checkin") return checkInGuest(payload);
+    if (payload.action === "rsvp") return rsvpGuest(payload);
+    if (payload.action === "remind") return remindGuests(payload);
     if (payload.action === "contest") return contestState(payload);
     if (payload.action === "contestVote") return contestVote(payload);
     if (payload.action === "contestAdd") return contestAdd(payload);
@@ -276,6 +285,8 @@ function updateGuest(payload) {
       sheet.getRange(found.rowNumber, COL_STATUS).setValue("pending");
       sheet.getRange(found.rowNumber, COL_PAID).setValue("");
       sheet.getRange(found.rowNumber, COL_CHECKED).setValue("");
+      sheet.getRange(found.rowNumber, COL_RSVP).setValue("");
+      sheet.getRange(found.rowNumber, COL_RSVP_AT).setValue("");
       return { ok: true };
     }
     if (status === "paid") {
@@ -345,6 +356,137 @@ function checkInGuest(payload) {
     };
   } finally {
     lock.releaseLock();
+  }
+}
+
+function rsvpGuest(payload) {
+  var id = clean(payload.id, 80);
+  var answer = clean(payload.answer, 3);
+  if (answer !== "yes" && answer !== "no") return { ok: false, error: "Open the link in the reminder email." };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var sheet = guestSheet();
+    var found = findGuest(sheet, id);
+    if (!found || found.guest.status !== "accepted") {
+      return { ok: false, error: "This invitation is no longer active." };
+    }
+    sheet.getRange(found.rowNumber, COL_RSVP).setValue(answer);
+    sheet.getRange(found.rowNumber, COL_RSVP_AT).setNumberFormat("@").setValue(new Date().toISOString());
+    return { ok: true, answer: answer, name: found.guest.name };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function remindGuests(payload) {
+  var settings = requireHost(payload.password);
+  var onlyId = clean(payload.id, 80);
+  var guests = readGuests(guestSheet());
+  var targets = [];
+  for (var i = 0; i < guests.length; i++) {
+    var guest = guests[i];
+    if (guest.status !== "accepted" || !guest.email) continue;
+    if (onlyId) {
+      if (guest.id === onlyId) targets.push(guest);
+    } else if (guest.rsvp !== "yes" && guest.rsvp !== "no") {
+      targets.push(guest);
+    }
+  }
+  if (!targets.length) {
+    return {
+      ok: true,
+      sent: 0,
+      failed: 0,
+      warning: onlyId
+        ? "That person is not on the invited list."
+        : "Everyone invited has already answered.",
+    };
+  }
+  var sent = 0;
+  var failed = 0;
+  var firstError = "";
+  for (var t = 0; t < targets.length; t++) {
+    var result = sendReminder(targets[t], settings);
+    if (result.ok) {
+      sent++;
+      markReminded(targets[t].id);
+    } else {
+      failed++;
+      if (!firstError) firstError = result.error;
+    }
+  }
+  return {
+    ok: true,
+    sent: sent,
+    failed: failed,
+    warning: failed ? sent + " sent. " + failed + " could not be sent. " + firstError : "",
+  };
+}
+
+function markReminded(id) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    var sheet = guestSheet();
+    var found = findGuest(sheet, id);
+    if (!found) return;
+    sheet.getRange(found.rowNumber, COL_REMINDED).setNumberFormat("@").setValue(new Date().toISOString());
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function confirmLink(id, answer) {
+  return CONFIRM_PAGE + "?id=" + encodeURIComponent(id) + "&answer=" + answer;
+}
+
+function sendReminder(guest, settings) {
+  var yes = confirmLink(guest.id, "yes");
+  var no = confirmLink(guest.id, "no");
+  var when = [settings.dateLabel || "", settings.timeLabel || ""].filter(Boolean).join(", ");
+  var text = [
+    "Hello " + guest.name + ",",
+    "",
+    "One tap, so we know whether you're coming.",
+    "",
+    "I'll be there",
+    yes,
+    "",
+    "I can't make it",
+    no,
+    "",
+    when,
+    settings.address || "",
+    "https://maps.app.goo.gl/qSQiDCiEJaP639ev6",
+    "",
+    settings.hostName || "The hosts",
+  ].join("\n");
+  var html = [
+    '<div style="font-family:Georgia,serif;font-size:16px;line-height:1.45;color:#24120f">',
+    "<p>Hello " + escapeHtml(guest.name) + ",</p>",
+    "<p>One tap, so we know whether you're coming.</p>",
+    '<p><a href="' + escapeHtml(yes) + '">I\'ll be there</a></p>',
+    '<p><a href="' + escapeHtml(no) + '">I can\'t make it</a></p>',
+    when ? "<p>" + escapeHtml(when) + "</p>" : "",
+    settings.address ? "<p>" + escapeHtml(settings.address) + "</p>" : "",
+    '<p><a href="https://maps.app.goo.gl/qSQiDCiEJaP639ev6">Map</a></p>',
+    "<p>" + escapeHtml(settings.hostName || "The hosts") + "</p>",
+    "</div>",
+  ].join("");
+  try {
+    var message = {
+      to: guest.email,
+      subject: "Friday — are you coming?",
+      body: text,
+      htmlBody: html,
+      name: settings.hostName || "The hosts",
+    };
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.replyTo || "")) message.replyTo = settings.replyTo;
+    MailApp.sendEmail(message);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message || "The email could not be sent." };
   }
 }
 
@@ -523,10 +665,21 @@ function ensureGuestColumns(sheet) {
   var width = Math.max(sheet.getLastColumn(), GUEST_HEADERS.length);
   var headers = sheet.getRange(1, 1, 1, width).getValues()[0];
   if (String(headers[0]) !== "id") return;
-  if (String(headers[12]) === "token" && String(headers[13]) === "checkedIn") return;
-  sheet.getRange(1, COL_TOKEN).setValue("token").setFontWeight("bold");
-  sheet.getRange(1, COL_CHECKED).setValue("checkedIn").setFontWeight("bold");
-  sheet.getRange("M:N").setNumberFormat("@");
+  var needed = [
+    [COL_TOKEN, "token"],
+    [COL_CHECKED, "checkedIn"],
+    [COL_RSVP, "rsvp"],
+    [COL_RSVP_AT, "rsvpAt"],
+    [COL_REMINDED, "reminderSent"],
+  ];
+  var missing = false;
+  for (var i = 0; i < needed.length; i++) {
+    if (String(headers[needed[i][0] - 1]) !== needed[i][1]) {
+      sheet.getRange(1, needed[i][0]).setValue(needed[i][1]).setFontWeight("bold");
+      missing = true;
+    }
+  }
+  if (missing) sheet.getRange("M:Q").setNumberFormat("@");
 }
 
 function getSettings() {
@@ -595,6 +748,9 @@ function rowToGuest(row) {
     paid: asText(row[11]),
     token: asText(row[12]).toUpperCase(),
     checkedIn: asText(row[13]),
+    rsvp: asText(row[14]),
+    rsvpAt: asText(row[15]),
+    reminderSent: asText(row[16]),
   };
 }
 

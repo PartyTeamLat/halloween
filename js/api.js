@@ -152,6 +152,8 @@
       guest.status = "pending";
       guest.paid = "";
       guest.checkedIn = "";
+      guest.rsvp = "";
+      guest.rsvpAt = "";
     } else if (payload.status === "paid") {
       if (guest.status !== "accepted") {
         return { ok: false, error: "Accept them before marking the contribution paid." };
@@ -465,6 +467,44 @@
     });
   }
 
+  function localRsvp(payload) {
+    var answer = payload.answer === "no" ? "no" : payload.answer === "yes" ? "yes" : "";
+    if (!answer) return { ok: false, error: "Open the link in the reminder email." };
+    var guests = readLocal();
+    var guest = null;
+    guests.forEach(function (item) {
+      if (item.id === payload.id) guest = item;
+    });
+    if (!guest || guest.status !== "accepted") {
+      return { ok: false, error: "This invitation is no longer active." };
+    }
+    guest.rsvp = answer;
+    guest.rsvpAt = new Date().toISOString();
+    writeLocal(guests);
+    return { ok: true, answer: answer, name: guest.name };
+  }
+
+  function localRemind() {
+    return {
+      ok: true,
+      sent: 0,
+      failed: 0,
+      warning: "Reminders go out once the Google Sheet is connected.",
+    };
+  }
+
+  async function rsvp(payload) {
+    if (isDemo()) return unwrap(localRsvp(payload));
+    return call({ action: "rsvp", id: payload.id, answer: payload.answer });
+  }
+
+  async function remind(password, id) {
+    if (isDemo()) return unwrap(localRemind());
+    var payload = { action: "remind", password: password };
+    if (id) payload.id = id;
+    return call(payload);
+  }
+
   async function contestRemove(password, id) {
     if (isDemo()) return unwrap(localContestRemove(password, id));
     return call({ action: "contestRemove", password: password, id: id });
@@ -481,5 +521,7 @@
     contestVote: contestVote,
     contestAdd: contestAdd,
     contestRemove: contestRemove,
+    rsvp: rsvp,
+    remind: remind,
   };
 })();
