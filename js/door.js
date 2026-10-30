@@ -2,6 +2,9 @@
   var PASSWORD_KEY = "halloween-host-password";
   var party = window.PARTY || {};
   var password = sessionStorage.getItem(PASSWORD_KEY) || "";
+  var guests = [];
+  var currentId = "";
+  var scanToken = 0;
   var stream = null;
   var paused = false;
   var lastPayload = "";
@@ -74,6 +77,22 @@
     return paid === "yes" ? "Contribution is marked paid." : "Contribution is not marked paid.";
   }
 
+  function guestIdFor(email) {
+    var wanted = String(email || "").toLowerCase();
+    var match = null;
+    guests.forEach(function (guest) {
+      if (guest.status === "accepted" && String(guest.email || "").toLowerCase() === wanted) match = guest;
+    });
+    return match ? match.id : "";
+  }
+
+  function showPaidButton(show) {
+    var button = document.getElementById("mark-paid");
+    button.hidden = !show;
+    button.disabled = false;
+    button.textContent = "Mark paid";
+  }
+
   function showResult(kind, kicker, name, detail, okSound) {
     paused = true;
     result.hidden = false;
@@ -82,7 +101,24 @@
     document.getElementById("result-name").textContent = name || "No name";
     document.getElementById("result-detail").textContent = detail || "";
     scanStatus.textContent = "";
+    scanToken += 1;
+    showPaidButton(false);
     beep(okSound);
+  }
+
+  async function offerPaid(answer) {
+    var token = scanToken;
+    currentId = guestIdFor(answer.email);
+    if (!currentId && answer.email) {
+      try {
+        var listed = await window.GuestList.list(password);
+        if (token !== scanToken) return;
+        guests = listed.guests || [];
+        currentId = guestIdFor(answer.email);
+      } catch (err) {}
+    }
+    if (token !== scanToken) return;
+    showPaidButton(answer.paid !== "yes" && !!currentId);
   }
 
   function normalize(raw) {
@@ -107,6 +143,7 @@
       var answer = await window.GuestList.checkIn(password, payload);
       if (answer.result === "welcome") {
         showResult("welcome", "Inside", answer.name, paidLine(answer.paid), true);
+        offerPaid(answer);
       } else if (answer.result === "already") {
         var when = formatWhen(answer.checkedIn);
         showResult(
@@ -116,6 +153,7 @@
           (when ? "Came in at " + when + ". " : "") + paidLine(answer.paid),
           false
         );
+        offerPaid(answer);
       } else if (answer.result === "not-accepted") {
         showResult("bad", "Not invited", answer.name, "This request was not accepted.", false);
       } else {
@@ -184,7 +222,8 @@
     var entered = document.getElementById("password").value;
     setPassword(entered);
     window.GuestList.list(entered)
-      .then(function () {
+      .then(function (listed) {
+        guests = listed.guests || [];
         showBooth();
       })
       .catch(function (err) {
@@ -196,8 +235,25 @@
 
   openButton.addEventListener("click", openCamera);
 
+  document.getElementById("mark-paid").addEventListener("click", async function () {
+    var button = document.getElementById("mark-paid");
+    if (!currentId) return;
+    button.disabled = true;
+    try {
+      await window.GuestList.update(password, { id: currentId, status: "paid" });
+      document.getElementById("result-detail").textContent = "Contribution is marked paid.";
+      button.hidden = true;
+    } catch (err) {
+      button.disabled = false;
+      document.getElementById("result-detail").textContent = err.message || "Could not mark that paid.";
+    }
+  });
+
   document.getElementById("next").addEventListener("click", function () {
     result.hidden = true;
+    currentId = "";
+    scanToken += 1;
+    showPaidButton(false);
     scanStatus.textContent = "Point the camera at the picture in their invitation.";
     ignoreUntil = Date.now() + 2500;
     paused = false;
@@ -210,7 +266,10 @@
 
   if (password) {
     window.GuestList.list(password)
-      .then(showBooth)
+      .then(function (listed) {
+        guests = listed.guests || [];
+        showBooth();
+      })
       .catch(function () {
         setPassword("");
       });
